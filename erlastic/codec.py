@@ -3,11 +3,17 @@ from __future__ import division
 
 import struct
 
-NEW_FLOAT_EXT     = 'F' # 70  [Float64:IEEE float]
+from erlastic.types import *
+
+NEW_FLOAT_EXT = 'F'     # 70  [Float64:IEEE float]
+BIT_BINARY_EXT = 'M'    # 77  [UInt32:Len, UInt8:Bits, Len:Data]
 SMALL_INTEGER_EXT = 'a' # 97  [UInt8:Int]
 INTEGER_EXT = 'b'       # 98  [Int32:Int]
 FLOAT_EXT = 'c'         # 99  [31:Float String] Float in string format (formatted "%.20e", sscanf "%lf"). Superseded by NEW_FLOAT_EXT
 ATOM_EXT = 'd'          # 100 [UInt16:Len, Len:AtomName] max Len is 255
+REFERENCE_EXT = 'e'     # 101 [atom:Node, UInt32:ID, UInt8:Creation]
+PORT_EXT = 'f'          # 102 [atom:Node, UInt32:ID, UInt8:Creation]
+PID_EXT = 'g'           # 103 [atom:Node, UInt32:ID, UInt32:Serial, UInt8:Creation]
 SMALL_TUPLE_EXT = 'h'   # 104 [UInt8:Arity, N:Elements]
 LARGE_TUPLE_EXT = 'i'   # 105 [UInt32:Arity, N:Elements]
 NIL_EXT = 'j'           # 106 empty list
@@ -16,10 +22,14 @@ LIST_EXT = 'l'          # 108 [UInt32:Len, Elements, Tail]
 BINARY_EXT = 'm'        # 109 [UInt32:Len, Len:Data]
 SMALL_BIG_EXT = 'n'     # 110 [UInt8:n, UInt8:Sign, n:nums]
 LARGE_BIG_EXT = 'o'     # 111 [UInt32:n, UInt8:Sign, n:nums]
+NEW_FUN_EXT = 'p'       # 112 [UInt32:Size, UInt8:Arity, 16*Uint6-MD5:Uniq, UInt32:Index, UInt32:NumFree, atom:Module, int:OldIndex, int:OldUniq, pid:Pid, NunFree*ext:FreeVars]
+EXPORT_EXT = 'q'        # 113 [atom:Module, atom:Function, smallint:Arity]
+NEW_REFERENCE_EXT = 'r' # 114 [UInt16:Len, atom:Node, UInt8:Creation, Len*UInt32:ID]
+SMALL_ATOM_EXT = 's'    # 115 [UInt8:Len, Len:AtomName]
+FUN_EXT = 'u'           # 117 [UInt4:NumFree, pid:Pid, atom:Module, int:Index, int:Uniq, NumFree*ext:FreeVars]
 
-class Atom(str):
-    def __repr__(self):
-        return "Atom(%s)" % super(Atom, self).__repr__()
+class EncodingError(Exception):
+    pass
 
 class ErlangTermDecoder(object):
     def __init__(self, encoding=None):
@@ -41,10 +51,11 @@ class ErlangTermDecoder(object):
             return float(bytes[offset:offset+31].split('\x00', 1)[0]), offset+31
         elif tag == NEW_FLOAT_EXT:
             return struct.unpack(">d", bytes[offset:offset+8])[0], offset+8
-        elif tag == ATOM_EXT:
-            atom_len = struct.unpack(">H", bytes[offset:offset+2])[0]
-            atom = bytes[offset+2:offset+2+atom_len]
-            offset += 2+atom_len
+        elif tag in (ATOM_EXT, SMALL_ATOM_EXT):
+            len_n = 2 if tag == ATOM_EXT else 1
+            atom_len = struct.unpack(">H", bytes[offset:offset+len_n])[0]
+            atom = bytes[offset+len_n:offset+len_n+atom_len]
+            offset += len_n+atom_len
             if atom == "true":
                 return True, offset
             elif atom == "false":
@@ -109,8 +120,45 @@ class ErlangTermDecoder(object):
             if sign != 0:
                 val = -val
             return val, offset
+        elif tag == REFERENCE_EXT:
+            node, offset = self._decode(bytes, offset)
+            if not isinstance(node, Atom):
+                raise EncodingError("Expected atom while parsing REFERENCE_EXT, found %r instead" % node)
+            reference_id, creation = struct.unpack(">LB", bytes[offset:offset+5])
+            return Reference(node, [reference_id], creation), offset+5
+        elif tag == NEW_REFERENCE_EXT:
+            id_len = struct.unpack(">H", bytes[offset:offset+2])[0]
+            node, offset = self._decode(bytes, offset+2)
+            if not isinstance(node, Atom):
+                raise EncodingError("Expected atom while parsing NEW_REFERENCE_EXT, found %r instead" % node)
+            creation = ord(bytes[offset])
+            reference_id = struct.unpack(">%dL" % id_len, bytes[offset+1:offset+1+4*id_len])
+            return Reference(node, reference_id, creation), offset+1+4*id_len
+        elif tag == PORT_EXT:
+            node, offset = self._decode(bytes, offset)
+            if not isinstance(node, Atom):
+                raise EncodingError("Expected atom while parsing PORT_EXT, found %r instead" % node)
+            port_id, creation = struct.unpack(">LB", bytes[offset:offset+5])
+            return Port(node, port_id, creation), offset+5
+        elif tag == PID_EXT:
+            node, offset = self._decode(bytes, offset)
+            if not isinstance(node, Atom):
+                raise EncodingError("Expected atom while parsing PID_EXT, found %r instead" % node)
+            pid_id, serial, creation = struct.unpack(">LLB", bytes[offset:offset+9])
+            return PID(node, pid_id, serial, creation), offset+9
+        elif tag == EXPORT_EXT:
+            module, offset = self._decode(bytes, offset)
+            if not isinstance(module, Atom):
+                raise EncodingError("Expected atom while parsing EXPORT_EXT, found %r instead" % module)
+            function, offset = self._decode(bytes, offset)
+            if not isinstance(function, Atom):
+                raise EncodingError("Expected atom while parsing EXPORT_EXT, found %r instead" % function)
+            arity, offset = self._decode(bytes, offset)
+            if not isinstance(arity, int):
+                raise EncodingError("Expected integer while parsing EXPORT_EXT, found %r instead" % arity)
+            return Export(module, function, arity), offset+1
         else:
-            raise NotImplementedError("Unsupported tag %d" % tag)
+            raise NotImplementedError("Unsupported tag %d" % ord(tag))
 
 class ErlangTermEncoder(object):
     def __init__(self, encoding="utf-8", unicode_type="binary"):
@@ -179,5 +227,23 @@ class ErlangTermEncoder(object):
             for item in obj:
                 self._encode(item, bytes)
             bytes.append(NIL_EXT) # list tail - no such thing in Python
+        elif isinstance(obj, Reference):
+            bytes += [NEW_REFERENCE_EXT,
+                struct.pack(">H", len(obj.ref_id)),
+                ATOM_EXT, struct.pack(">H", len(obj.node)), obj.node,
+                chr(obj.creation), struct.pack(">%dL" % len(obj.ref_id), *obj.ref_id)]
+        elif isinstance(obj, Port):
+            bytes += [PORT_EXT,
+                ATOM_EXT, struct.pack(">H", len(obj.node)), obj.node,
+                struct.pack(">LB", obj.port_id, obj.creation)]
+        elif isinstance(obj, PID):
+            bytes += [PID_EXT,
+                ATOM_EXT, struct.pack(">H", len(obj.node)), obj.node,
+                struct.pack(">LLB", obj.pid_id, obj.serial, obj.creation)]
+        elif isinstance(obj, Export):
+            bytes += [EXPORT_EXT,
+                ATOM_EXT, struct.pack(">H", len(obj.module)), obj.module,
+                ATOM_EXT, struct.pack(">H", len(obj.function)), obj.function,
+                SMALL_INTEGER_EXT, chr(obj.arity)]
         else:
             raise NotImplementedError("Unable to serialize %r" % obj)
