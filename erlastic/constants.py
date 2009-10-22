@@ -1,3 +1,6 @@
+
+FORMAT_VERSION = 131
+
 NEW_FLOAT_EXT = 'F'     # 70  [Float64:IEEE float]
 BIT_BINARY_EXT = 'M'    # 77  [UInt32:Len, UInt8:Bits, Len:Data]
 SMALL_INTEGER_EXT = 'a' # 97  [UInt8:Int]

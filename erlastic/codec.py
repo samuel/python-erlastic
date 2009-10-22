@@ -16,9 +16,10 @@ class ErlangTermDecoder(object):
         self.encoding = encoding
 
     def decode(self, bytes, offset=0):
-        if bytes[offset] == "\x83": # Version 131
-            offset += 1
-        return self._decode(bytes, offset)[0]
+        version = ord(bytes[offset])
+        if version != FORMAT_VERSION:
+            raise EncodingError("Bad version number. Expected %d found %d" % (FORMAT_VERSION, version))
+        return self._decode(bytes, offset+1)[0]
 
     def _decode(self, bytes, offset=0):
         tag = bytes[offset]
@@ -146,7 +147,7 @@ class ErlangTermEncoder(object):
         self.unicode_type = unicode_type
 
     def encode(self, obj):
-        bytes = [chr(131)]
+        bytes = [chr(FORMAT_VERSION)]
         self._encode(obj, bytes)
         return "".join(bytes)
 
