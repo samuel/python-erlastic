@@ -1,7 +1,6 @@
 
 from __future__ import division
 
-import math
 import struct
 
 NEW_FLOAT_EXT     = 'F' # 70  [Float64:IEEE float]
@@ -134,19 +133,18 @@ class ErlangTermEncoder(object):
             elif -2147483648 <= obj <= 2147483647:
                 bytes += [INTEGER_EXT, struct.pack(">l", obj)]
             else:
-                n = int(math.ceil(math.log(obj, 2) / 8))
-                if n <= 256:
-                    bytes += [SMALL_BIG_EXT, chr(n)]
-                else:
-                    bytes += [LARGE_BIG_EXT, struct.pack(">L", n)]
-                if obj >= 0:
-                    bytes.append("\x00")
-                else:
-                    bytes.append("\x01")
-                    obj = -obj
+                sign = chr(int(obj < 0))
+                obj = abs(obj)
+
+                big_bytes = []
                 while obj > 0:
-                    bytes.append(chr(obj & 0xff))
+                    big_bytes.append(chr(obj & 0xff))
                     obj >>= 8
+
+                if len(big_bytes) < 256:
+                    bytes += [SMALL_BIG_EXT, chr(len(big_bytes)), sign] + big_bytes
+                else:
+                    bytes += [LARGE_BIG_EXT, struct.pack(">L", len(big_bytes)), sign] + big_bytes
         elif isinstance(obj, float):
             floatstr = "%.20e" % obj
             bytes += [FLOAT_EXT, floatstr + "\x00"*(31-len(floatstr))]
