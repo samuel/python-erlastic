@@ -133,7 +133,7 @@ class ErlangTermEncoder(object):
             elif -2147483648 <= obj <= 2147483647:
                 bytes += [INTEGER_EXT, struct.pack(">l", obj)]
             else:
-                sign = chr(int(obj < 0))
+                sign = chr(obj < 0)
                 obj = abs(obj)
 
                 big_bytes = []
