@@ -5,8 +5,8 @@ import math
 import struct
 
 NEW_FLOAT_EXT     = 'F' # 70  [Float64:IEEE float]
-SMALL_INTEGER_EXT = 'a' # 97  [UInt8:Int] Unsigned 8 bit integer
-INTEGER_EXT = 'b'       # 98  [Int32:Int] Signed 32 bit integer in big-endian format
+SMALL_INTEGER_EXT = 'a' # 97  [UInt8:Int]
+INTEGER_EXT = 'b'       # 98  [Int32:Int]
 FLOAT_EXT = 'c'         # 99  [31:Float String] Float in string format (formatted "%.20e", sscanf "%lf"). Superseded by NEW_FLOAT_EXT
 ATOM_EXT = 'd'          # 100 [UInt16:Len, Len:AtomName] max Len is 255
 SMALL_TUPLE_EXT = 'h'   # 104 [UInt8:Arity, N:Elements]
@@ -23,7 +23,7 @@ class Atom(str):
         return "Atom(%s)" % super(Atom, self).__repr__()
 
 class ErlangTermDecoder(object):
-    def __init__(self, encoding="utf-8"):
+    def __init__(self, encoding=None):
         self.encoding = encoding
 
     def decode(self, bytes, offset=0):
@@ -73,7 +73,9 @@ class ErlangTermDecoder(object):
                 try:
                     st = st.decode(self.encoding)
                 except UnicodeError:
-                    pass
+                    st = [ord(x) for x in st]
+            else:
+                st = [ord(x) for x in st]
             return st, offset+2+length
         elif tag == LIST_EXT:
             length = struct.unpack(">L", bytes[offset:offset+4])[0]
@@ -112,8 +114,9 @@ class ErlangTermDecoder(object):
             raise NotImplementedError("Unsupported tag %d" % tag)
 
 class ErlangTermEncoder(object):
-    def __init__(self, encoding="utf-8"):
+    def __init__(self, encoding="utf-8", unicode_type="binary"):
         self.encoding = encoding
+        self.unicode_type = unicode_type
 
     def encode(self, obj):
         bytes = [chr(131)]
@@ -152,11 +155,17 @@ class ErlangTermEncoder(object):
         elif isinstance(obj, str):
             bytes += [BINARY_EXT, struct.pack(">L", len(obj)), obj]
         elif isinstance(obj, unicode):
+            bytes += self.encode_unicode(obj)
             if not self.encoding:
                 self._encode([ord(x) for x in obj], bytes)
             else:
                 st = obj.encode(self.encoding)
-                bytes += [STRING_EXT, struct.pack(">H", len(st)), st]
+                if self.unicode_type == "binary":
+                    bytes += [BINARY_EXT, struct.pack(">L", len(st)), st]
+                elif self.unicode_type == "str":
+                    bytes += [STRING_EXT, struct.pack(">H", len(st)), st]
+                else:
+                    raise TypeError("Unknown unicode encoding type %s" % self.unicode_type)
         elif isinstance(obj, tuple):
             n = len(obj)
             if n < 256:
