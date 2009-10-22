@@ -3,7 +3,7 @@
 
 __version__ = "0.0.1"
 
-from erlastic.codec import ErlangTermDecoder, ErlangTermEncoder, Atom, Binary
+from erlastic.codec import ErlangTermDecoder, ErlangTermEncoder, Atom
 
 def encode(obj):
     return ErlangTermEncoder().encode(obj)

@@ -22,13 +22,9 @@ class Atom(str):
     def __repr__(self):
         return "Atom(%s)" % super(Atom, self).__repr__()
 
-class Binary(str):
-    def __repr__(self):
-        return "Binary(%s)" % super(Binary, self).__repr__()
-
 class ErlangTermDecoder(object):
-    def __init__(self):
-        pass
+    def __init__(self, encoding="utf-8"):
+        self.encoding = encoding
 
     def decode(self, bytes, offset=0):
         if bytes[offset] == "\x83": # Version 131
@@ -72,7 +68,13 @@ class ErlangTermDecoder(object):
             return [], offset
         elif tag == STRING_EXT:
             length = struct.unpack(">H", bytes[offset:offset+2])[0]
-            return bytes[offset+2:offset+2+length], offset+2+length
+            st = bytes[offset+2:offset+2+length]
+            if self.encoding:
+                try:
+                    st = st.decode(self.encoding)
+                except UnicodeError:
+                    pass
+            return st, offset+2+length
         elif tag == LIST_EXT:
             length = struct.unpack(">L", bytes[offset:offset+4])[0]
             offset += 4
@@ -87,7 +89,7 @@ class ErlangTermDecoder(object):
             return items, offset
         elif tag == BINARY_EXT:
             length = struct.unpack(">L", bytes[offset:offset+4])[0]
-            return Binary(bytes[offset+4:offset+4+length]), offset+4+length
+            return bytes[offset+4:offset+4+length], offset+4+length
         elif tag in (SMALL_BIG_EXT, LARGE_BIG_EXT):
             if tag == SMALL_BIG_EXT:
                 n = ord(bytes[offset])
@@ -110,8 +112,8 @@ class ErlangTermDecoder(object):
             raise NotImplementedError("Unsupported tag %d" % tag)
 
 class ErlangTermEncoder(object):
-    def __init__(self):
-        pass
+    def __init__(self, encoding="utf-8"):
+        self.encoding = encoding
 
     def encode(self, obj):
         bytes = [chr(131)]
@@ -147,12 +149,14 @@ class ErlangTermEncoder(object):
             bytes += [FLOAT_EXT, floatstr + "\x00"*(31-len(floatstr))]
         elif isinstance(obj, Atom):
             bytes += [ATOM_EXT, struct.pack(">H", len(obj)), obj]
-        elif isinstance(obj, (Binary, buffer)):
-            bytes += [BINARY_EXT, struct.pack(">L", len(obj)), obj]
         elif isinstance(obj, str):
-            bytes += [STRING_EXT, struct.pack(">H", len(obj)), obj]
+            bytes += [BINARY_EXT, struct.pack(">L", len(obj)), obj]
         elif isinstance(obj, unicode):
-            self._encode([ord(x) for x in obj], bytes)
+            if not self.encoding:
+                self._encode([ord(x) for x in obj], bytes)
+            else:
+                st = obj.encode(self.encoding)
+                bytes += [STRING_EXT, struct.pack(">H", len(st)), st]
         elif isinstance(obj, tuple):
             n = len(obj)
             if n < 256:

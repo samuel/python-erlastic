@@ -2,13 +2,13 @@
 
 import unittest
 
-from erlastic import decode, encode, Atom, Binary
+from erlastic import decode, encode, Atom
 
 erlang_term_binaries = [
     # nil
     ([], list, "\x83j"),
     # binary
-    (Binary("foo"), Binary, '\x83m\x00\x00\x00\x03foo'),
+    ("foo", str, '\x83m\x00\x00\x00\x03foo'),
     # atom
     (Atom("foo"), Atom, '\x83d\x00\x03foo'),
     # atom true
@@ -16,7 +16,7 @@ erlang_term_binaries = [
     # atom false
     (False, bool, '\x83d\x00\x05false'),
     # string
-    ("foo", str, '\x83k\x00\x03foo'),
+    (u"foo", unicode, '\x83k\x00\x03foo'),
     # small integer
     (123, int, '\x83a{'),
     # integer
@@ -24,9 +24,9 @@ erlang_term_binaries = [
     # float
     (1.2345, float, '\x83c1.23449999999999993072e+00\x00\x00\x00\x00\x00'),
     # tuple
-    ((Atom("foo"), "test", 123), tuple, '\x83h\x03d\x00\x03fook\x00\x04testa{'),
+    ((Atom("foo"), u"test", 123), tuple, '\x83h\x03d\x00\x03fook\x00\x04testa{'),
     # list
-    ([1024, "test", 4.096], list, '\x83l\x00\x00\x00\x03b\x00\x00\x04\x00k\x00\x04testc4.09600000000000008527e+00\x00\x00\x00\x00\x00j'),
+    ([1024, u"test", 4.096], list, '\x83l\x00\x00\x00\x03b\x00\x00\x04\x00k\x00\x04testc4.09600000000000008527e+00\x00\x00\x00\x00\x00j'),
     # small big
     (12345678901234567890, long, '\x83n\x08\x00\xd2\n\x1f\xeb\x8c\xa9T\xab'),
     # large big
