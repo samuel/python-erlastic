@@ -112,6 +112,7 @@ class ErlangTermDecoder(object):
         return items, offset
 
     def decode_m(self, bytes, offset):
+        """BINARY_EXT"""
         length = struct.unpack(">L", bytes[offset:offset+4])[0]
         return bytes[offset+4:offset+4+length], offset+4+length
 
