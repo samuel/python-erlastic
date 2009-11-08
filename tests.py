@@ -16,6 +16,8 @@ erlang_term_binaries = [
     (True, bool, '\x83d\x00\x04true'),
     # atom false
     (False, bool, '\x83d\x00\x05false'),
+    # atom none
+    (None, type(None), '\x83d\x00\x04none'),
     # # byte list
     # ([102, 111, 111], list, '\x83k\x00\x03foo'),
     # small integer
