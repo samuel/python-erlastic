@@ -277,7 +277,7 @@ class ErlangTermEncoder(object):
         else:
             raise NotImplementedError("Unable to serialize %r" % obj)
 
-    def encode_unicode(self, val):
+    def encode_unicode(self, obj):
         if not self.encoding:
             return self.encode_part([ord(x) for x in obj])
         else:
