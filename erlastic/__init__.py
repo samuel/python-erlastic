@@ -7,8 +7,6 @@ __license__ = "BSD"
 from erlastic.codec import ErlangTermDecoder, ErlangTermEncoder
 from erlastic.types import *
 
-def encode(obj):
-    return ErlangTermEncoder().encode(obj)
+encode = ErlangTermEncoder().encode
+decode = ErlangTermDecoder().decode
 
-def decode(obj):
-    return ErlangTermDecoder().decode(obj)
