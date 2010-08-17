@@ -2,6 +2,7 @@
 from __future__ import division
 
 import struct
+import zlib
 
 from erlastic.constants import *
 from erlastic.types import *
@@ -187,6 +188,12 @@ class ErlangTermDecoder(object):
         if not isinstance(arity, int):
             raise EncodingError("Expected integer while parsing EXPORT_EXT, found %r instead" % arity)
         return Export(module, function, arity), offset+1
+
+    def decode_P(self, bytes, offset):
+        """Compressed term"""
+        usize = struct.unpack(">L", bytes[offset:offset+4])[0]
+        bytes = zlib.decompress(bytes[offset+4:offset+4+usize])
+        return self.decode_part(bytes, 0)
 
     def convert_atom(self, atom):
         if atom == "true":
