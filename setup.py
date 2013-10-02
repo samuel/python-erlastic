@@ -9,7 +9,7 @@ setup(
     version = version,
     description = 'Erlastic',
     author = 'Samuel Stauffer',
-    author_email = 'samuel@lefora.com',
+    author_email = 'samuel@descolada.com',
     url = 'http://github.com/samuel/python-erlastic',
     packages = ['erlastic'],
     classifiers = [
