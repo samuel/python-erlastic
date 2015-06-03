@@ -13,12 +13,10 @@ class Reference(object):
         self.ref_id = ref_id
         self.creation = creation
 
-    def __cmp__(self, other):
-        if not isinstance(other, Reference):
-            return 1
-        if self.node == other.node and self.ref_id == other.ref_id and self.creation == other.creation:
-            return 0
-        return -1
+    def __eq__(self, other):
+        return isinstance(other, Reference) and self.node == other.node and self.ref_id == other.ref_id and self.creation == other.creation
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __str__(self):
         return "#Ref<%d.%s>" % (self.creation, ".".join(str(i) for i in self.ref_id))
@@ -32,12 +30,10 @@ class Port(object):
         self.port_id = port_id
         self.creation = creation
 
-    def __cmp__(self, other):
-        if not isinstance(other, Port):
-            return 1
-        if self.node == other.node and self.port_id == other.port_id and self.creation == other.creation:
-            return 0
-        return -1
+    def __eq__(self, other):
+        return isinstance(other, Port) and self.node == other.node and self.port_id == other.port_id and self.creation == other.creation
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __str__(self):
         return "#Port<%d.%d>" % (self.creation, self.port_id)
@@ -52,12 +48,10 @@ class PID(object):
         self.serial = serial
         self.creation = creation
 
-    def __cmp__(self, other):
-        if not isinstance(other, PID):
-            return 1
-        if self.node == other.node and self.pid_id == other.pid_id and self.serial == other.serial and self.creation == other.creation:
-            return 0
-        return -1
+    def __eq__(self, other):
+        return isinstance(other, PID) and self.node == other.node and self.pid_id == other.pid_id and self.serial == other.serial and self.creation == other.creation
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __str__(self):
         return "<%d.%d.%d>" % (self.creation, self.pid_id, self.serial)
@@ -71,12 +65,10 @@ class Export(object):
         self.function = function
         self.arity = arity
 
-    def __cmp__(self, other):
-        if not isinstance(other, Export):
-            return 1
-        if self.module == other.module and self.function == other.function and self.arity == other.arity:
-            return 0
-        return -1
+    def __eq__(self, other):
+        return isinstance(other, Export) and self.module == other.module and self.function == other.function and self.arity == other.arity
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __str__(self):
         return "#Fun<%s.%s.%d>" % (self.module, self.function, self.arity)
